@@ -140,15 +140,55 @@ async function register(){try{let j=await api('/api/register',{method:'POST',hea
 async function loadMe(){let j=await api('/api/me');me=j;token=token; $('auth').classList.add('hidden');$('app').classList.remove('hidden');$('balance').textContent=Number(j.profile.balance||0).toFixed(2);if(j.profile.role==='admin'){$('adminTab').classList.remove('hidden');loadAdmin()}loadHistory()}
 async function logout(){token='';me=null;location.reload()}
 function show(id){for(const x of ['orders','withdraw','history','admin'])$(x).classList.add('hidden');$(id).classList.remove('hidden');if(id==='history')loadHistory();if(id==='admin')loadAdmin()}
-async function createOrder(amount){let j=await api('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount})});$('orderBox').innerHTML=`<h3>Order ₹${amount}</h3><p>Pay using the bank/UPI details shown below, then submit your UTR and screenshot.</p><p>Bank: ${cfg.bankName||'Admin will configure this'}</p><p>Account holder: ${cfg.accountHolder||'-'}</p><p>Account: ${cfg.accountNumber||'-'}</p><p>IFSC: ${cfg.ifsc||'-'}</p><p>UPI: ${cfg.upiId||'-'}</p>${cfg.upiId?`<a href="upi://pay?pa=${encodeURIComponent(cfg.upiId)}&am=${amount}&cu=INR"><button>Pay ₹${amount} in UPI app</button></a>`:''}<input id="utr" placeholder="UTR"><input id="shot" type="file" accept="image/*"><button onclick="submitProof('${j.order.id}')">Submit payment proof</button><p class="small muted">Balance is credited only after admin verification.</p>`}
-async function submitProof(id){
-  let fd=new FormData();
-  fd.append('utr',$('utr').value);
-  fd.append('screenshot',$('shot').files[0]);
-  await api('/api/orders/'+id+'/proof',{method:'POST',body:fd});
-  alert('Proof submitted for review');
-  loadHistory();
-}
+async async function createOrder(amount){
+  const payout = amount * 0.10;
+  const total = amount + payout;
+
+  try{
+    const j = await api('/api/orders',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({amount})
+    });
+
+    if(j.error){
+      alert(j.error);
+      return;
+    }
+
+    $('orderBox').innerHTML = `
+      <div class="card">
+        <h3>Complete Payment</h3>
+
+        <p><b>Order:</b> ₹${amount.toLocaleString('en-IN')}</p>
+        <p><b>10% Payout:</b> ₹${payout.toLocaleString('en-IN')}</p>
+        <p><b>Total:</b> ₹${total.toLocaleString('en-IN')}</p>
+
+        <hr>
+
+        <p><b>Bank Details</b></p>
+        <p>Bank: ${cfg.bankName || ''}</p>
+        <p>Account Holder: ${cfg.accountHolder || ''}</p>
+        <p>Account Number: ${cfg.accountNumber || ''}</p>
+        <p>IFSC: ${cfg.ifsc || ''}</p>
+
+        <label>UTR / Transaction ID</label>
+        <input id="utr" type="text" placeholder="Enter UTR">
+
+        <label>Payment Screenshot</label>
+        <input id="shot" type="file" accept="image/*">
+
+        <button onclick="submitProof('${j.id}')">
+          Submit Payment Proof
+        </button>
+
+        <p id="proofMsg" class="muted"></p>
+      </div>
+    `;
+  }catch(e){
+    alert(e.message || 'Order create failed');
+  }
+  }
 
 async function sendOtp(){  const msg = $('authMsg');
   const email = $('email').value.trim();
@@ -201,7 +241,7 @@ async function verifyOTP(){
 
   token = data.session.access_token;
   $('authMsg').textContent = 'Login successful!';
-  await loadMe();
+  
   }async function loadHistory(){let o=await api('/api/orders'),w=await api('/api/withdrawals');$('historyList').innerHTML=[...o.orders.map(x=>`<div class="card">Order ₹${x.amount} — ${x.status} — ${new Date(x.created_at).toLocaleString()}</div>`),...w.withdrawals.map(x=>`<div class="card">Withdrawal ₹${x.amount} — ${x.method} — ${x.status}</div>`)].join('')||'No history'}
 async function withdraw(){try{let j=await api('/api/withdrawals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:Number($('wAmount').value),method:$('wMethod').value,details:{text:$('wDetails').value}})});$('wMsg').textContent='Submitted';await loadMe()}catch(e){$('wMsg').textContent=e.message}}
 async function loadAdmin(){let [o,w,s]=await Promise.all([api('/api/admin/orders'),api('/api/admin/withdrawals'),api('/api/admin/settings')]);$('adminOrders').innerHTML=o.orders.map(x=>`<div class="card"><b>₹${x.amount}</b> — ${x.profiles?.email||x.user_id} — ${x.status} ${x.status==='PENDING_REVIEW'?`<a href="/api/admin/screenshot/${x.id}" target="_blank">View screenshot</a><button onclick="review('${x.id}','APPROVED')">Approve</button><button class="danger" onclick="review('${x.id}','REJECTED')">Reject</button>`:''}</div>`).join('')||'No orders';$('adminWithdrawals').innerHTML=w.withdrawals.map(x=>`<div class="card">₹${x.amount} — ${x.method} — ${x.profiles?.email||x.user_id} — ${x.status} ${x.status==='PENDING'?`<button onclick="wd('${x.id}','PAID')">Mark paid</button><button class="danger" onclick="wd('${x.id}','REJECTED')">Reject/return funds</button>`:''}</div>`).join('')||'No withdrawals';$('sBank').value=s.bank_name||'';$('sHolder').value=s.account_holder||'';$('sAccount').value=s.account_number||'';$('sIfsc').value=s.ifsc||'';$('sUpi').value=s.upi_id||'';$('sSupport').value=s.support_url||cfg.supportUrl;$('sAmounts').value=s.order_amounts||cfg.orderAmounts.join(',')}
