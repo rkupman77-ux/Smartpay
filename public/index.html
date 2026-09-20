@@ -84,9 +84,9 @@ async function init(){cfg=await api('/api/config');$('siteName').textContent=cfg
 </main>
 <script>
 let token='', me=null, cfg={};
-const $=id=>document.getElementById(id);
+let sb=null;const $=id=>document.getElementById(id);
 async function api(path,opt={}){opt.headers=opt.headers||{};if(token)opt.headers.Authorization='Bearer '+token;let r=await fetch(path,opt);let j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Request failed');return j}
-async function init(){cfg=await api('/api/config');$('siteName').textContent=cfg.siteName;$('support').href=cfg.supportUrl;$('amounts').innerHTML=cfg.orderAmounts.map(a=>`<button onclick="createOrder(${a})">₹${a}</button>`).join('')}
+async function init(){cfg=await api('/api/config');sb=supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);$('siteName').textContent=cfg.siteName;$('support').href=cfg.supportUrl;$('amounts').innerHTML=cfg.orderAmounts.map(a=>`<button onclick="createOrder(${a})">₹${a}</button>`).join('')}
 async function login(){try{let j=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})});token=j.session.access_token;await loadMe();$('authMsg').textContent='Logged in'}catch(e){$('authMsg').textContent=e.message}}
 async function register(){try{let j=await api('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})});if(j.session){token=j.session.access_token;await loadMe()}else $('authMsg').textContent=j.message}catch(e){$('authMsg').textContent=e.message}}
 async function loadMe(){let j=await api('/api/me');me=j;token=token; $('auth').classList.add('hidden');$('app').classList.remove('hidden');$('balance').textContent=Number(j.profile.balance||0).toFixed(2);if(j.profile.role==='admin'){$('adminTab').classList.remove('hidden');loadAdmin()}loadHistory()}
