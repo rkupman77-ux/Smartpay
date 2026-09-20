@@ -7,15 +7,29 @@
 <style>
 body{font-family:system-ui;margin:0;background:#f5f7fb;color:#172033}header{background:#111827;color:#fff;padding:16px}main{max-width:900px;margin:auto;padding:16px}.card{background:#fff;padding:16px;border-radius:14px;margin:12px 0;box-shadow:0 2px 12px #0001}button,input,select{width:100%;padding:12px;margin:6px 0;border-radius:9px;border:1px solid #ccd3df;box-sizing:border-box}button{background:#16a34a;color:#fff;border:0;font-weight:700}.danger{background:#dc2626}.muted{color:#667085}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}.hidden{display:none}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button{width:auto}.small{font-size:13px}
 </style>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 </head>
 <body>
 <header><b id="siteName">P2P Platform</b><span id="status" style="float:right"></span></header>
 <main>
 <section id="auth" class="card">
-<h2>Login / Register</h2>
-<input id="email" type="email" placeholder="Email">
-<input id="password" type="password" placeholder="Password (8+ chars)">
-<div class="grid"><button onclick="login()">Login</button><button onclick="register()">Register</button></div>
+<h2>Email OTP Login</h2>
+
+<input id="email" type="email" placeholder="Enter your email">
+
+<button onclick="sendOtp()">Send OTP</button>
+
+<input id="otp" type="text" inputmode="numeric"
+placeholder="Enter 6-digit OTP" maxlength="6"
+style="display:none">
+
+<button id="verifyBtn" onclick="verifyOTP()"
+style="display:none">Verify OTP</button>
+
 <p id="authMsg" class="muted"></p>
 </section>
 
@@ -80,7 +94,44 @@ async function logout(){token='';me=null;location.reload()}
 function show(id){for(const x of ['orders','withdraw','history','admin'])$(x).classList.add('hidden');$(id).classList.remove('hidden');if(id==='history')loadHistory();if(id==='admin')loadAdmin()}
 async function createOrder(amount){let j=await api('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount})});$('orderBox').innerHTML=`<h3>Order ₹${amount}</h3><p>Pay using the bank/UPI details shown below, then submit your UTR and screenshot.</p><p>Bank: ${cfg.bankName||'Admin will configure this'}</p><p>Account holder: ${cfg.accountHolder||'-'}</p><p>Account: ${cfg.accountNumber||'-'}</p><p>IFSC: ${cfg.ifsc||'-'}</p><p>UPI: ${cfg.upiId||'-'}</p>${cfg.upiId?`<a href="upi://pay?pa=${encodeURIComponent(cfg.upiId)}&am=${amount}&cu=INR"><button>Pay ₹${amount} in UPI app</button></a>`:''}<input id="utr" placeholder="UTR"><input id="shot" type="file" accept="image/*"><button onclick="submitProof('${j.order.id}')">Submit payment proof</button><p class="small muted">Balance is credited only after admin verification.</p>`}
 async function submitProof(id){let fd=new FormData();fd.append('utr',$('utr').value);fd.append('screenshot',$('shot').files[0]);await api('/api/orders/'+id+'/proof',{method:'POST',body:fd});alert('Proof submitted for review');loadHistory()}
-async function loadHistory(){let o=await api('/api/orders'),w=await api('/api/withdrawals');$('historyList').innerHTML=[...o.orders.map(x=>`<div class="card">Order ₹${x.amount} — ${x.status} — ${new Date(x.created_at).toLocaleString()}</div>`),...w.withdrawals.map(x=>`<div class="card">Withdrawal ₹${x.amount} — ${x.method} — ${x.status}</div>`)].join('')||'No history'}
+async function sendOtp(){
+  const email = $('email').value.trim();
+  if(!email) return $('authMsg').textContent='Email enter karo';
+
+  const { error } = await sb.auth.signInWithOtp({
+    email: email,
+    options: { shouldCreateUser: true }
+  });
+
+  $('authMsg').textContent = error
+    ? error.message
+    : 'OTP email par bhej diya gaya hai.';
+
+  if(!error){
+    $('otp').style.display='block';
+    $('verifyBtn').style.display='inline-block';
+  }
+}
+
+async function verifyOTP(){
+  const email = $('email').value.trim();
+  const otp = $('otp').value.trim();
+
+  const { data, error } = await sb.auth.verifyOtp({
+    email: email,
+    token: otp,
+    type: 'email'
+  });
+
+  if(error){
+    $('authMsg').textContent = error.message;
+    return;
+  }
+
+  token = data.session.access_token;
+  $('authMsg').textContent = 'Login successful!';
+  await loadMe();
+  }async function loadHistory(){let o=await api('/api/orders'),w=await api('/api/withdrawals');$('historyList').innerHTML=[...o.orders.map(x=>`<div class="card">Order ₹${x.amount} — ${x.status} — ${new Date(x.created_at).toLocaleString()}</div>`),...w.withdrawals.map(x=>`<div class="card">Withdrawal ₹${x.amount} — ${x.method} — ${x.status}</div>`)].join('')||'No history'}
 async function withdraw(){try{let j=await api('/api/withdrawals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:Number($('wAmount').value),method:$('wMethod').value,details:{text:$('wDetails').value}})});$('wMsg').textContent='Submitted';await loadMe()}catch(e){$('wMsg').textContent=e.message}}
 async function loadAdmin(){let [o,w,s]=await Promise.all([api('/api/admin/orders'),api('/api/admin/withdrawals'),api('/api/admin/settings')]);$('adminOrders').innerHTML=o.orders.map(x=>`<div class="card"><b>₹${x.amount}</b> — ${x.profiles?.email||x.user_id} — ${x.status} ${x.status==='PENDING_REVIEW'?`<a href="/api/admin/screenshot/${x.id}" target="_blank">View screenshot</a><button onclick="review('${x.id}','APPROVED')">Approve</button><button class="danger" onclick="review('${x.id}','REJECTED')">Reject</button>`:''}</div>`).join('')||'No orders';$('adminWithdrawals').innerHTML=w.withdrawals.map(x=>`<div class="card">₹${x.amount} — ${x.method} — ${x.profiles?.email||x.user_id} — ${x.status} ${x.status==='PENDING'?`<button onclick="wd('${x.id}','PAID')">Mark paid</button><button class="danger" onclick="wd('${x.id}','REJECTED')">Reject/return funds</button>`:''}</div>`).join('')||'No withdrawals';$('sBank').value=s.bank_name||'';$('sHolder').value=s.account_holder||'';$('sAccount').value=s.account_number||'';$('sIfsc').value=s.ifsc||'';$('sUpi').value=s.upi_id||'';$('sSupport').value=s.support_url||cfg.supportUrl;$('sAmounts').value=s.order_amounts||cfg.orderAmounts.join(',')}
 async function review(id,d){await api('/api/admin/orders/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision:d})});loadAdmin();loadMe()}
