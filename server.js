@@ -3,14 +3,14 @@ import express from 'express';
 import multer from 'multer';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-
+import { Resend } from 'resend';
 const app = express();
+const resend = new Resend(process.env.RESEND_API_KEY);
 const port = process.env.PORT || 3000;
-
 const url = process.env.SUPABASE_URL;
 const anonKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
+const resendApiKey = process.env.RESEND_API_KEY;
 if (!url || !anonKey || !serviceKey) {
   console.error('Missing SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY or SUPABASE_SERVICE_ROLE_KEY');
   process.exit(1);
