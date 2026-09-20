@@ -54,7 +54,7 @@ body{font-family:system-ui;margin:0;background:#f5f7fb;color:#172033}header{back
 <button onclick="saveSettings()">Save settings</button>
 <p class="small muted">Only verified payment proofs should be approved. Approval credits the order amount to the user's balance.</p>
 </div>
-</section>
+async function init(){cfg=await api('/api/config');$('siteName').textContent=cfg.siteName;$('support').href=cfg.supportUrl;$('amounts').innerHTML=cfg.orderAmounts.map(a=>{const payout=a*0.10,total=a+payout;return `<div class="card"><button onclick="createOrder(${a})">₹${a}</button><div class="small">10% payout calculation: ₹${payout.toFixed(2)}</div><div><b>Calculated total: ₹${total.toFixed(2)}</b></div></div>`}).join('')}
 </main>
 <script>
 let token='', me=null, cfg={};
