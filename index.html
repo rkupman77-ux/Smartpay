@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P2P Platform</title>
+<style>
+body{font-family:system-ui;margin:0;background:#f5f7fb;color:#172033}header{background:#111827;color:#fff;padding:16px}main{max-width:900px;margin:auto;padding:16px}.card{background:#fff;padding:16px;border-radius:14px;margin:12px 0;box-shadow:0 2px 12px #0001}button,input,select{width:100%;padding:12px;margin:6px 0;border-radius:9px;border:1px solid #ccd3df;box-sizing:border-box}button{background:#16a34a;color:#fff;border:0;font-weight:700}.danger{background:#dc2626}.muted{color:#667085}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}.hidden{display:none}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button{width:auto}.small{font-size:13px}
+</style>
+</head>
+<body>
+<header><b id="siteName">P2P Platform</b><span id="status" style="float:right"></span></header>
+<main>
+<section id="auth" class="card">
+<h2>Login / Register</h2>
+<input id="email" type="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password (8+ chars)">
+<div class="grid"><button onclick="login()">Login</button><button onclick="register()">Register</button></div>
+<p id="authMsg" class="muted"></p>
+</section>
+
+<section id="app" class="hidden">
+<div class="card">
+<h2>Account</h2><div>Balance: <b>₹<span id="balance">0</span></b></div>
+<button class="danger" onclick="logout()">Logout</button>
+</div>
+
+<div class="tabs">
+<button onclick="show('orders')">Orders</button>
+<button onclick="show('withdraw')">Withdraw</button>
+<button onclick="show('history')">History</button>
+<button id="adminTab" class="hidden" onclick="show('admin')">Admin</button>
+<a id="support" href="#" target="_blank" style="padding:12px">Telegram Support</a>
+</div>
+
+<div id="orders" class="card"><h2>Place Order</h2><div id="amounts" class="grid"></div><div id="orderBox"></div></div>
+
+<div id="withdraw" class="card hidden">
+<h2>Withdrawal</h2>
+<input id="wAmount" type="number" placeholder="Amount">
+<select id="wMethod"><option>BANK</option><option>UPI</option><option>PHONEPE</option><option>PAYTM</option></select>
+<textarea id="wDetails" style="width:100%;height:100px" placeholder="Enter payout details"></textarea>
+<button onclick="withdraw()">Submit Withdrawal</button><p id="wMsg" class="muted"></p>
+</div>
+
+<div id="history" class="card hidden"><h2>My History</h2><div id="historyList"></div></div>
+
+<div id="admin" class="card hidden">
+<h2>Admin</h2>
+<h3>Payment reviews</h3><div id="adminOrders"></div>
+<h3>Withdrawals</h3><div id="adminWithdrawals"></div>
+<h3>Settings</h3>
+<input id="sBank" placeholder="Bank name"><input id="sHolder" placeholder="Account holder"><input id="sAccount" placeholder="Account number"><input id="sIfsc" placeholder="IFSC"><input id="sUpi" placeholder="UPI ID"><input id="sSupport" placeholder="Telegram/support URL"><input id="sAmounts" placeholder="500,1000,1500,2000,2500,3000,5000">
+<button onclick="saveSettings()">Save settings</button>
+<p class="small muted">Only verified payment proofs should be approved. Approval credits the order amount to the user's balance.</p>
+</div>
+</section>
+</main>
+<script>
+let token='', me=null, cfg={};
+const $=id=>document.getElementById(id);
+async function api(path,opt={}){opt.headers=opt.headers||{};if(token)opt.headers.Authorization='Bearer '+token;let r=await fetch(path,opt);let j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Request failed');return j}
+async function init(){cfg=await api('/api/config');$('siteName').textContent=cfg.siteName;$('support').href=cfg.supportUrl;$('amounts').innerHTML=cfg.orderAmounts.map(a=>`<button onclick="createOrder(${a})">₹${a}</button>`).join('')}
+async function login(){try{let j=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})});token=j.session.access_token;await loadMe();$('authMsg').textContent='Logged in'}catch(e){$('authMsg').textContent=e.message}}
+async function register(){try{let j=await api('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})});if(j.session){token=j.session.access_token;await loadMe()}else $('authMsg').textContent=j.message}catch(e){$('authMsg').textContent=e.message}}
+async function loadMe(){let j=await api('/api/me');me=j;token=token; $('auth').classList.add('hidden');$('app').classList.remove('hidden');$('balance').textContent=Number(j.profile.balance||0).toFixed(2);if(j.profile.role==='admin'){$('adminTab').classList.remove('hidden');loadAdmin()}loadHistory()}
+async function logout(){token='';me=null;location.reload()}
+function show(id){for(const x of ['orders','withdraw','history','admin'])$(x).classList.add('hidden');$(id).classList.remove('hidden');if(id==='history')loadHistory();if(id==='admin')loadAdmin()}
+async function createOrder(amount){let j=await api('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount})});$('orderBox').innerHTML=`<h3>Order ₹${amount}</h3><p>Pay using the bank/UPI details shown below, then submit your UTR and screenshot.</p><p>Bank: ${cfg.bankName||'Admin will configure this'}</p><p>Account holder: ${cfg.accountHolder||'-'}</p><p>Account: ${cfg.accountNumber||'-'}</p><p>IFSC: ${cfg.ifsc||'-'}</p><p>UPI: ${cfg.upiId||'-'}</p>${cfg.upiId?`<a href="upi://pay?pa=${encodeURIComponent(cfg.upiId)}&am=${amount}&cu=INR"><button>Pay ₹${amount} in UPI app</button></a>`:''}<input id="utr" placeholder="UTR"><input id="shot" type="file" accept="image/*"><button onclick="submitProof('${j.order.id}')">Submit payment proof</button><p class="small muted">Balance is credited only after admin verification.</p>`}
+async function submitProof(id){let fd=new FormData();fd.append('utr',$('utr').value);fd.append('screenshot',$('shot').files[0]);await api('/api/orders/'+id+'/proof',{method:'POST',body:fd});alert('Proof submitted for review');loadHistory()}
+async function loadHistory(){let o=await api('/api/orders'),w=await api('/api/withdrawals');$('historyList').innerHTML=[...o.orders.map(x=>`<div class="card">Order ₹${x.amount} — ${x.status} — ${new Date(x.created_at).toLocaleString()}</div>`),...w.withdrawals.map(x=>`<div class="card">Withdrawal ₹${x.amount} — ${x.method} — ${x.status}</div>`)].join('')||'No history'}
+async function withdraw(){try{let j=await api('/api/withdrawals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:Number($('wAmount').value),method:$('wMethod').value,details:{text:$('wDetails').value}})});$('wMsg').textContent='Submitted';await loadMe()}catch(e){$('wMsg').textContent=e.message}}
+async function loadAdmin(){let [o,w,s]=await Promise.all([api('/api/admin/orders'),api('/api/admin/withdrawals'),api('/api/admin/settings')]);$('adminOrders').innerHTML=o.orders.map(x=>`<div class="card"><b>₹${x.amount}</b> — ${x.profiles?.email||x.user_id} — ${x.status} ${x.status==='PENDING_REVIEW'?`<a href="/api/admin/screenshot/${x.id}" target="_blank">View screenshot</a><button onclick="review('${x.id}','APPROVED')">Approve</button><button class="danger" onclick="review('${x.id}','REJECTED')">Reject</button>`:''}</div>`).join('')||'No orders';$('adminWithdrawals').innerHTML=w.withdrawals.map(x=>`<div class="card">₹${x.amount} — ${x.method} — ${x.profiles?.email||x.user_id} — ${x.status} ${x.status==='PENDING'?`<button onclick="wd('${x.id}','PAID')">Mark paid</button><button class="danger" onclick="wd('${x.id}','REJECTED')">Reject/return funds</button>`:''}</div>`).join('')||'No withdrawals';$('sBank').value=s.bank_name||'';$('sHolder').value=s.account_holder||'';$('sAccount').value=s.account_number||'';$('sIfsc').value=s.ifsc||'';$('sUpi').value=s.upi_id||'';$('sSupport').value=s.support_url||cfg.supportUrl;$('sAmounts').value=s.order_amounts||cfg.orderAmounts.join(',')}
+async function review(id,d){await api('/api/admin/orders/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision:d})});loadAdmin();loadMe()}
+async function wd(id,d){await api('/api/admin/withdrawals/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision:d})});loadAdmin();loadMe()}
+async function saveSettings(){let body={bank_name:$('sBank').value,account_holder:$('sHolder').value,account_number:$('sAccount').value,ifsc:$('sIfsc').value,upi_id:$('sUpi').value,support_url:$('sSupport').value,order_amounts:$('sAmounts').value};await api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});cfg=await api('/api/config');alert('Saved')}
+init();
+</script>
+</body>
+</html>
