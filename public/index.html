@@ -93,26 +93,42 @@ async function loadMe(){let j=await api('/api/me');me=j;token=token; $('auth').c
 async function logout(){token='';me=null;location.reload()}
 function show(id){for(const x of ['orders','withdraw','history','admin'])$(x).classList.add('hidden');$(id).classList.remove('hidden');if(id==='history')loadHistory();if(id==='admin')loadAdmin()}
 async function createOrder(amount){let j=await api('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount})});$('orderBox').innerHTML=`<h3>Order ₹${amount}</h3><p>Pay using the bank/UPI details shown below, then submit your UTR and screenshot.</p><p>Bank: ${cfg.bankName||'Admin will configure this'}</p><p>Account holder: ${cfg.accountHolder||'-'}</p><p>Account: ${cfg.accountNumber||'-'}</p><p>IFSC: ${cfg.ifsc||'-'}</p><p>UPI: ${cfg.upiId||'-'}</p>${cfg.upiId?`<a href="upi://pay?pa=${encodeURIComponent(cfg.upiId)}&am=${amount}&cu=INR"><button>Pay ₹${amount} in UPI app</button></a>`:''}<input id="utr" placeholder="UTR"><input id="shot" type="file" accept="image/*"><button onclick="submitProof('${j.order.id}')">Submit payment proof</button><p class="small muted">Balance is credited only after admin verification.</p>`}
-async function submitProof(id){let fd=new FormData();fd.append('utr',$('utr').value);fd.append('screenshot',$('shot').files[0]);await api('/api/orders/'+id+'/proof',{method:'POST',body:fd});alert('Proof submitted for review');loadHistory()}
-async function sendOtp(){$('authMsg').textContent = 'Button working...';
+async function submitProof(id){let fd=new FormData();fd.append('utr',$('utr').value);fd.append('screenshot',$('shot').files[0]);await api('/api/orders/'+id+'/proof',{method:'POST',body:fd});alert('Proof submitted for review');loadHistory(
+async function sendOtp(){
+  const msg = $('authMsg');
   const email = $('email').value.trim();
-  if(!email) return $('authMsg').textContent='Email enter karo';
 
-  const { error } = await sb.auth.signInWithOtp({
-    email: email,
-    options: { shouldCreateUser: true }
-  });
+  if(!email){
+    msg.textContent = 'Email enter karo';
+    return;
+  }
 
-  $('authMsg').textContent = error
-    ? error.message
-    : 'OTP email par bhej diya gaya hai.';
+  msg.textContent = 'OTP bheja ja raha hai...';
 
-  if(!error){
-    $('otp').style.display='block';
-    $('verifyBtn').style.display='inline-block';
+  try {
+    if(!window.supabase || !sb){
+      msg.textContent = 'Supabase load nahi hua.';
+      return;
+    }
+
+    const { error } = await sb.auth.signInWithOtp({
+      email: email,
+      options: { shouldCreateUser: true }
+    });
+
+    if(error){
+      msg.textContent = error.message;
+      return;
+    }
+
+    msg.textContent = 'OTP email par bhej diya gaya hai.';
+    $('otp').style.display = 'block';
+    $('verifyBtn').style.display = 'inline-block';
+
+  }catch(e){
+    msg.textContent = e.message || 'OTP send failed';
   }
 }
-
 async function verifyOTP(){
   const email = $('email').value.trim();
   const otp = $('otp').value.trim();
