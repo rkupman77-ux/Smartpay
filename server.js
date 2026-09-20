@@ -117,7 +117,7 @@ app.get('/api/config', async (_req, res) => {
     ifsc: s.ifsc || '',
     upiId: s.upi_id || '',
     supportUrl: s.support_url || process.env.SUPPORT_URL || 'https://t.me/',
-    orderAmounts: (s.order_amounts || amounts().join(',')).split(',').map(Number).filter(Boolean)
+    orderAmounts: (s.order_amounts || amounts().join(',')).split(',').map(Number).filter(Boolean),
 supabaseUrl: url,
 supabaseKey: anonKey  });
 });
