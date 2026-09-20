@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: p2p-supabase-portal
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFY_EMAIL
+        sync: false
+      - key: ORDER_AMOUNTS
+        value: "500,1000,1500,2000,2500,3000,5000"
+      - key: SITE_NAME
+        value: "P2P Platform"
+      - key: SUPPORT_URL
+        sync: false
