@@ -140,7 +140,7 @@ async function register(){try{let j=await api('/api/register',{method:'POST',hea
 async function loadMe(){let j=await api('/api/me');me=j;token=token; $('auth').classList.add('hidden');$('app').classList.remove('hidden');$('balance').textContent=Number(j.profile.balance||0).toFixed(2);if(j.profile.role==='admin'){$('adminTab').classList.remove('hidden');loadAdmin()}loadHistory()}
 async function logout(){token='';me=null;location.reload()}
 function show(id){for(const x of ['orders','withdraw','history','admin'])$(x).classList.add('hidden');$(id).classList.remove('hidden');if(id==='history')loadHistory();if(id==='admin')loadAdmin()}
-async async function createOrder(amount){
+async function createOrder(amount){
   const payout = amount * 0.10;
   const total = amount + payout;
 
