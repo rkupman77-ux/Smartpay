@@ -139,7 +139,13 @@ async function login(){try{let j=await api('/api/login',{method:'POST',headers:{
 async function register(){try{let j=await api('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})});if(j.session){token=j.session.access_token;await loadMe()}else $('authMsg').textContent=j.message}catch(e){$('authMsg').textContent=e.message}}
 async function loadMe(){let j=await api('/api/me');me=j;token=token; $('auth').classList.add('hidden');$('app').classList.remove('hidden');$('balance').textContent=Number(j.profile.balance||0).toFixed(2);if(j.profile.role==='admin'){$('adminTab').classList.remove('hidden');loadAdmin()}loadHistory()}
 async function logout(){token='';me=null;location.reload()}
-function show(id){for(const x of ['orders','withdraw','history','admin'])$(x).classList.add('hidden');$(id).classList.remove('hidden');if(id==='history')loadHistory();if(id==='admin')loadAdmin()}
+function show(id){
+  for(const x of ['orders','withdraw','history','admin']){
+    $(x).classList.add('hidden');
+  }
+
+  $(id).classList.remove('hidden');
+}
 async function createOrder(amount){
   const payout = amount * 0.10;
   const total = amount + payout;
