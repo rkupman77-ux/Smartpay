@@ -166,19 +166,23 @@ async function createOrder(amount){
 
         <hr>
 
-        <p><b>Bank Details</b></p>
-        <p>Bank: ${cfg.bankName || ''}</p>
-        <p>Account Holder: ${cfg.accountHolder || ''}</p>
-        <p>Account Number: ${cfg.accountNumber || ''}</p>
-        <p>IFSC: ${cfg.ifsc || ''}</p>
+        <h3>Bank / Payment Details</h3>
 
-        <label>UTR / Transaction ID</label>
-        <input id="utr" type="text" placeholder="Enter UTR">
+        <p><b>Bank:</b> ${cfg.bankName || 'Not set'}</p>
+        <p><b>Account Holder:</b> ${cfg.accountHolder || 'Not set'}</p>
+        <p><b>Account Number:</b> ${cfg.accountNumber || 'Not set'}</p>
+        <p><b>IFSC:</b> ${cfg.ifsc || 'Not set'}</p>
+        <p><b>UPI ID:</b> ${cfg.upiId || 'Not set'}</p>
 
-        <label>Payment Screenshot</label>
-        <input id="shot" type="file" accept="image/*">
+        <hr>
 
-        <button onclick="submitProof('${j.id}')">
+        <label><b>UTR / Transaction ID</b></label>
+        <input id="utr" type="text" placeholder="Enter UTR / Transaction ID">
+
+        <label><b>Payment Screenshot</b></label>
+        <input id="shot" type="file" accept="image/jpeg,image/png,image/webp">
+
+        <button onclick="submitProof('${j.order.id}')">
           Submit Payment Proof
         </button>
 
@@ -188,8 +192,41 @@ async function createOrder(amount){
   }catch(e){
     alert(e.message || 'Order create failed');
   }
+}
+async function submitProof(orderId){
+  const utr = $('utr').value.trim();
+  const shot = $('shot').files[0];
+  const msg = $('proofMsg');
+
+  if(!utr){
+    msg.textContent = 'UTR / Transaction ID enter karo.';
+    return;
   }
 
+  if(!shot){
+    msg.textContent = 'Payment screenshot select karo.';
+    return;
+  }
+
+  msg.textContent = 'Payment proof submit ho raha hai...';
+
+  try{
+    const fd = new FormData();
+    fd.append('utr', utr);
+    fd.append('screenshot', shot);
+
+    const j = await api('/api/orders/' + orderId + '/proof',{
+      method:'POST',
+      body:fd
+    });
+
+    msg.textContent = 'Payment proof submitted. Admin review karega.';
+    await loadHistory();
+
+  }catch(e){
+    msg.textContent = e.message || 'Payment proof submit failed';
+  }
+  }
 async function sendOtp(){  const msg = $('authMsg');
   const email = $('email').value.trim();
 
