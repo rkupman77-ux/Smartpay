@@ -207,9 +207,12 @@ app.post('/api/admin/orders/:id/review', requireUser, requireAdmin, async (req, 
   if (error) return res.status(500).json({ error: error.message });
 
   if (decision === 'APPROVED') {
-    const { data: p } = await admin.from('profiles').select('balance').eq('id', order.user_id).single();
-    const newBalance = Number(p?.balance || 0) + Number(order.amount);
-    await admin.from('profiles').update({ balance: newBalance }).eq('id', order.user_id);
+  const { data: p } = await admin.from('profiles').select('balance').eq('id', order.user_id).single();
+  const payout = Number(order.amount) * 0.10;
+  const totalCredit = Number(order.amount) + payout;
+  const newBalance = Number(p?.balance || 0) + totalCredit;
+
+  await admin.from('profiles').update({ balance: newBalance }).eq('id', order.user_id);
   }
   res.json({ order: updated });
 });
