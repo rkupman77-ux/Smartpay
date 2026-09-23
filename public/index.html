@@ -113,7 +113,7 @@ style="display:none">Verify OTP</button>
 <div id="withdraw" class="card hidden">
 <h2>Withdrawal</h2>
 <input id="wAmount" type="number" placeholder="Amount">
-<select id="wMethod"><option>BANK</option><option>UPI</option><option>PHONEPE</option><option>PAYTM</option></select>
+<input id="wPhone" type="tel" inputmode="numeric" placeholder="Phone Number" required><select id="wMethod"><option>BANK</option><option>UPI</option><option>PHONEPE</option><option>PAYTM</option></select>
 <textarea id="wDetails" style="width:100%;height:100px" placeholder="Enter payout details"></textarea>
 <button onclick="withdraw()">Submit Withdrawal</button><p id="wMsg" class="muted"></p>
 </div>
