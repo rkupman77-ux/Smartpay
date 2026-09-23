@@ -220,7 +220,13 @@ app.post('/api/admin/orders/:id/review', requireUser, requireAdmin, async (req, 
 app.post('/api/withdrawals', requireUser, async (req, res) => {
   const amount = Number(req.body.amount);
   const method = String(req.body.method || '').toUpperCase();
-  const details = req.body.details || {};
+  const phone = String(req.body.phone || '').trim();
+  const details = {
+  ...(req.body.details || {}),
+  phone
+};
+
+  if (!phone) return res.status(400).json({ error: 'Phone number is required' });
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
   if (!['BANK','UPI','PHONEPE','PAYTM'].includes(method)) return res.status(400).json({ error: 'Invalid withdrawal method' });
 
