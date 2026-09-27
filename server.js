@@ -47,20 +47,41 @@ async function userFromReq(req) {
   return data.user;
 }
 async function profile(userId) {
-  const { data, error } = await admin.from('profiles').select('*').eq('id', userId).maybeSingle();
-  if (error) throw error;
+  const { data, error } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
 
+  if (error) throw error;
   if (data) return data;
+
+  const { data: authData, error: authError } =
+    await admin.auth.admin.getUserById(userId);
+
+  if (authError) throw authError;
+
+  const email = authData.user?.email;
+  if (!email) throw new Error('User email not found');
+
+  const { data: existing, error: existingError } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existing) return existing;
 
   const { data: created, error: createError } = await admin
     .from('profiles')
-    .upsert({
+    .insert({
       id: userId,
-      email: '',
+      email: email,
       role: 'user',
       balance: 0,
       password_hash: ''
-    }, { onConflict: 'id' })
+    })
     .select('*')
     .single();
 
