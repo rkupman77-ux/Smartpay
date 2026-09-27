@@ -49,7 +49,23 @@ async function userFromReq(req) {
 async function profile(userId) {
   const { data, error } = await admin.from('profiles').select('*').eq('id', userId).maybeSingle();
   if (error) throw error;
-  return data;
+
+  if (data) return data;
+
+  const { data: created, error: createError } = await admin
+    .from('profiles')
+    .upsert({
+      id: userId,
+      email: '',
+      role: 'user',
+      balance: 0,
+      password_hash: ''
+    }, { onConflict: 'id' })
+    .select('*')
+    .single();
+
+  if (createError) throw createError;
+  return created;
 }
 async function requireUser(req, res, next) {
   try {
